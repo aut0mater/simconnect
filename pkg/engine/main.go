@@ -34,6 +34,19 @@ func New(name string, options ...Option) *Engine {
 			config.Logger.Warn("SimConnect DLL auto-detection failed", "error", err, "fallback", config.DLLPath)
 		}
 	}
+	// Validate that the DLL actually exists before we try to use it.
+	// syscall.LazyDLL panics on missing DLLs, so we fail fast with a
+	// clear error instead of crashing the whole process.
+	if _, err := os.Stat(config.DLLPath); err != nil {
+		config.Logger.Error("SimConnect DLL not found", "path", config.DLLPath, "error", err)
+		cancel()
+		return &Engine{
+			api:    nil,
+			cancel: cancel,
+			logger: config.Logger,
+			config: config,
+		}
+	}
 	ctx, cancel := context.WithCancel(config.Context)
 	return &Engine{
 		api:    simconnect.New(name, &config.Config),

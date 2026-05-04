@@ -8,8 +8,14 @@ import (
 )
 
 func (sc *SimConnect) Connect() error {
-	szName, err := stringToBytePtr(sc.name)
+	// Defensive: eagerly load the DLL before any procedure call so that a
+	// missing or wrong-architecture DLL produces a clean error instead of a
+	// panic inside syscall.LazyProc.Addr().
+	if err := sc.library.Load(); err != nil {
+		return fmt.Errorf("failed to load SimConnect DLL (%s): %w", sc.library.Path(), err)
+	}
 
+	szName, err := stringToBytePtr(sc.name)
 	if err != nil {
 		return fmt.Errorf("failed to convert client name to byte pointer: %w", err)
 	}
@@ -26,13 +32,11 @@ func (sc *SimConnect) Connect() error {
 	)
 
 	if !isHRESULTSuccess(hresult) {
-		// This needs to be handled properly, maybe with a custom error type.
 		return fmt.Errorf("SimConnect_Open failed with HRESULT: 0x%08X", hresult)
 	}
 
 	// Verify handle was set or return an error
 	handle := sc.getConnection()
-
 	if handle == 0 {
 		return fmt.Errorf("SimConnect_Open succeeded but handle is null")
 	}

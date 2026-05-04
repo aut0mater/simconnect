@@ -23,6 +23,13 @@ type DLL struct {
 	sync       sync.Mutex
 }
 
+// Load eagerly loads the underlying DLL and returns an error if it cannot be
+// found or loaded. Calling Load before any procedure lookup converts a potential
+// syscall.LazyProc panic into a clean, recoverable error.
+func (dll *DLL) Load() error {
+	return dll.binary.Load()
+}
+
 func (dll *DLL) LoadProcedure(name string) *syscall.LazyProc {
 	dll.sync.Lock()
 	defer dll.sync.Unlock()

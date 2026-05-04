@@ -27,8 +27,9 @@ func (sc *SimConnect) GetNextDispatch() (*types.SIMCONNECT_RECV, uint32, error) 
 		// Check for specific error codes
 		switch uint32(hresult) {
 		case types.E_FAIL:
-			// E_FAIL often just means "no message available right now" - this is normal when polling
-			return nil, 0, nil
+			// E_FAIL is a real failure, not "no message available". No-message is
+			// indicated by ppData == 0 after a successful HRESULT.
+			return nil, 0, errors.New("SimConnect_GetNextDispatch failed: unspecified error (E_FAIL)")
 		case types.E_ACCESSDENIED:
 			return nil, 0, errors.New("SimConnect_GetNextDispatch failed: Access denied - check if SimConnect is properly connected")
 		case types.E_HANDLE:
