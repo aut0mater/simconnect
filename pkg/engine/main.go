@@ -34,6 +34,7 @@ func New(name string, options ...Option) *Engine {
 			config.Logger.Warn("SimConnect DLL auto-detection failed", "error", err, "fallback", config.DLLPath)
 		}
 	}
+	ctx, cancel := context.WithCancel(config.Context)
 	// Validate that the DLL actually exists before we try to use it.
 	// syscall.LazyDLL panics on missing DLLs, so we fail fast with a
 	// clear error instead of crashing the whole process.
@@ -47,7 +48,6 @@ func New(name string, options ...Option) *Engine {
 			config: config,
 		}
 	}
-	ctx, cancel := context.WithCancel(config.Context)
 	return &Engine{
 		api:    simconnect.New(name, &config.Config),
 		cancel: cancel,
