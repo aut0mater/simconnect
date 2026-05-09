@@ -121,11 +121,7 @@ func (m *Instance) processMessage(msg engine.Message) {
 
 	// Forward message to subscriptions (non-blocking)
 	for _, sub := range m.subsBuf {
-		// fast-path: skip closed subscriptions
-		sub.closeMu.Lock()
-		closed := sub.closed.Load()
-		sub.closeMu.Unlock()
-		if closed {
+		if sub.closed.Load() {
 			continue
 		}
 

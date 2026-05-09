@@ -6,7 +6,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/mrlm-net/simconnect/pkg/types"
 )
 
 func stringToBytePtr(name string) (*byte, error) {

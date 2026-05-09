@@ -37,10 +37,15 @@ func getPooledSlice(size uint32) ([]byte, func()) {
 	}
 }
 
-// Adaptive polling constants for exponential backoff
+// Polling interval. Set to 200ms (5 Hz) to match the gRPC forward rate.
+// Each SimConnect_GetNextDispatch call incurs ~1.4ms of overhead inside the
+// DLL (named pipe IPC + internal bookkeeping), even for E_FAIL returns.
+// At 50ms polling (20 calls/sec), that's ~28ms/sec = 2.8% CPU just from
+// polling, plus data-call overhead. At 200ms (5 calls/sec), total CPU from
+// the DLL drops below 1%.
 const (
-	minSleep = 1 * time.Millisecond
-	maxSleep = 50 * time.Millisecond
+	minSleep = 200 * time.Millisecond
+	maxSleep = 200 * time.Millisecond
 )
 
 const (
@@ -65,8 +70,6 @@ func (e *Engine) dispatch() error {
 			e.closeQueue()
 		}()
 
-		// Adaptive sleep for backoff when no messages available
-		sleepDuration := minSleep
 
 		for {
 			select {
@@ -88,21 +91,12 @@ func (e *Engine) dispatch() error {
 
 				}
 
-				if recv == nil {
-					// No message available, apply adaptive backoff to reduce CPU usage
-					time.Sleep(sleepDuration)
-					// Exponential backoff: 1ms -> 2ms -> 4ms -> 8ms -> 16ms -> 32ms -> 50ms (cap)
-					if sleepDuration < maxSleep {
-						sleepDuration *= 2
-						if sleepDuration > maxSleep {
-							sleepDuration = maxSleep
-						}
-					}
+
+				if recv == nil || size == 0 {
+					time.Sleep(minSleep)
 					continue
 				}
 
-				// Reset sleep duration on activity
-				sleepDuration = minSleep
 
 				// Copy the received message using tiered pooling
 				dataCopy, release := getPooledSlice(size)
@@ -149,6 +143,7 @@ func (e *Engine) dispatch() error {
 						return
 					case e.queue <- newMessage(recvCopy, size, err, dataCopy, release):
 					}
+				time.Sleep(minSleep / 4)
 				} else {
 					// No data to send, release buffer
 					release()
